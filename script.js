@@ -76,7 +76,14 @@ function init() {
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file && file.type.startsWith('image/')) {
+        // Check file size (limit to 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showError('Image file is too large. Please use an image smaller than 10MB.');
+            return;
+        }
         processImage(file);
+    } else if (file) {
+        showError('Please select a valid image file (JPEG, PNG, etc.).');
     }
 }
 
@@ -96,7 +103,14 @@ function handleDrop(e) {
     
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
+        // Check file size (limit to 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showError('Image file is too large. Please use an image smaller than 10MB.');
+            return;
+        }
         processImage(file);
+    } else if (file) {
+        showError('Please select a valid image file (JPEG, PNG, etc.).');
     }
 }
 
@@ -186,6 +200,9 @@ function displayAIResult(aiImage) {
 
 // Show error message
 function showError(message) {
+    // Sanitize message to prevent XSS
+    const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
     const processingContent = document.querySelector('.processing-content');
     processingContent.innerHTML = `
         <div style="text-align: center; padding: 20px;">
@@ -193,7 +210,7 @@ function showError(message) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <h3 style="color: #dc3545; margin-bottom: 10px;">Oops! Something went wrong</h3>
-            <p style="color: #6c757d; margin-bottom: 20px;">${message}</p>
+            <p style="color: #6c757d; margin-bottom: 20px;">${sanitizedMessage}</p>
             <button class="btn btn-primary" onclick="handleNewPhoto()">Try Another Photo</button>
         </div>
     `;

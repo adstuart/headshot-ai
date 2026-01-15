@@ -43,24 +43,69 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid image format' });
     }
 
-    // The exact prompt as specified in requirements
-    const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
+    // Check image size (limit to ~5MB base64, which is ~3.75MB binary)
+    if (image.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image too large. Please use a smaller image.' });
+    }
 
-    // Extract base64 data (remove data URL prefix)
-    const base64Data = image.split(',')[1];
+    // Step 1: Use GPT-4 Vision to analyze the person in the image
+    console.log('Analyzing image with GPT-4 Vision...');
+    const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Analyze this person and provide a detailed description focusing on: facial features, apparent age, gender presentation, ethnicity, hair color and style, eye color, facial expression, and any distinctive features. Be specific and detailed for accurate image generation. Format as a natural description.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: image
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      }),
+    });
 
-    // Call OpenAI API using DALL-E 3 for image editing
-    // Note: DALL-E 3 doesn't support image editing directly, so we'll use GPT-4 Vision
-    // to describe the image and then generate a new one, or use DALL-E 2 edit endpoint
+    if (!visionResponse.ok) {
+      const errorData = await visionResponse.json().catch(() => ({}));
+      console.error('GPT-4 Vision API error:', errorData);
+      
+      if (visionResponse.status === 429) {
+        return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
+      }
+      
+      return res.status(500).json({ error: 'Failed to analyze image. Please try again.' });
+    }
+
+    const visionData = await visionResponse.json();
+    const personDescription = visionData.choices?.[0]?.message?.content;
     
-    // For image-to-image transformation, we'll use the images/edits endpoint with DALL-E 2
-    // or the chat completion with vision to analyze and regenerate
-    
-    // Option 1: Use DALL-E 2 edit endpoint (requires PNG with transparency)
-    // Option 2: Use GPT-4 Vision + DALL-E 3 generation
-    // For now, we'll use DALL-E 3 generation with the prompt describing the transformation
-    
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
+    if (!personDescription) {
+      console.error('Invalid vision response:', visionData);
+      return res.status(500).json({ error: 'Failed to analyze image' });
+    }
+
+    console.log('Person description:', personDescription);
+
+    // Step 2: Generate professional headshot with DALL-E 3
+    // Combine the person description with the professional headshot requirements
+    const prompt = `Ultra-realistic 8K corporate headshot photograph. ${personDescription}. The person is wearing a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects or distractions. Professional studio portrait in portrait orientation, styled as a Sony A7III 85mm f/1.4 photograph with shallow depth of field: subject in sharp focus, background softly blurred. Soft three-point lighting creating gentle shadows and a subtle rim light on hair and shoulders. Natural skin texture with visible pores and fine details, no artificial smoothing or filters. Bright, natural catchlights in the eyes. Professional LinkedIn-ready studio portrait with corporate polish.`;
+
+    console.log('Generating professional headshot with DALL-E 3...');
+    const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,31 +121,29 @@ export default async function handler(req, res) {
       }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('OpenAI API error:', errorData);
+    if (!dalleResponse.ok) {
+      const errorData = await dalleResponse.json().catch(() => ({}));
+      console.error('DALL-E API error:', errorData);
       
-      // Handle rate limiting
-      if (response.status === 429) {
+      if (dalleResponse.status === 429) {
         return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
       }
       
-      // Handle other API errors without exposing details
       return res.status(500).json({ error: 'Failed to generate headshot. Please try again.' });
     }
 
-    const data = await response.json();
+    const dalleData = await dalleResponse.json();
     
-    if (!data.data || !data.data[0] || !data.data[0].b64_json) {
-      console.error('Invalid response from OpenAI:', data);
+    if (!dalleData.data || !dalleData.data[0] || !dalleData.data[0].b64_json) {
+      console.error('Invalid response from DALL-E:', dalleData);
       return res.status(500).json({ error: 'Invalid response from AI service' });
     }
 
     // Return the generated image as base64
     return res.status(200).json({
       success: true,
-      image: `data:image/png;base64,${data.data[0].b64_json}`,
-      revised_prompt: data.data[0].revised_prompt || null,
+      image: `data:image/png;base64,${dalleData.data[0].b64_json}`,
+      revised_prompt: dalleData.data[0].revised_prompt || null,
     });
 
   } catch (error) {
