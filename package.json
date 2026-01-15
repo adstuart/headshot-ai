@@ -1,0 +1,9 @@
+{
+  "name": "headshot-ai",
+  "version": "1.0.0",
+  "description": "AI-powered professional LinkedIn headshot generator using OpenAI",
+  "type": "module",
+  "dependencies": {
+    "form-data": "^4.0.4"
+  }
+}

@@ -3,6 +3,9 @@
  * This function receives an image, sends it to OpenAI's API, and returns the transformed result
  */
 
+// Import FormData for multipart/form-data support
+import FormData from 'form-data';
+
 export default async function handler(req, res) {
   // Set CORS headers
   // Note: Using wildcard (*) for CORS. For production, consider restricting to specific domains
@@ -44,107 +47,69 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid image format' });
     }
 
-    // Check image size (limit to ~5MB base64, which is ~3.75MB binary)
-    if (image.length > 5 * 1024 * 1024) {
+    // Check image size (limit to ~10MB base64, which is ~7.5MB binary)
+    // OpenAI's edits endpoint accepts images up to 50MB
+    if (image.length > 10 * 1024 * 1024) {
       return res.status(400).json({ error: 'Image too large. Please use a smaller image.' });
     }
 
-    // Step 1: Use GPT-4 Vision to analyze the person in the image
-    console.log('Analyzing image with GPT-4 Vision...');
-    const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Convert base64 image to buffer for multipart/form-data
+    // Extract the base64 data from the data URL
+    const base64Data = image.split(',')[1];
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Determine image format from data URL
+    const mimeType = image.split(';')[0].split(':')[1];
+    const extension = mimeType.split('/')[1];
+
+    // Use the exact prompt as specified
+    const prompt = 'Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.';
+
+    console.log('Transforming image with gpt-image-1...');
+    
+    // Create multipart form data
+    const formData = new FormData();
+    formData.append('model', 'gpt-image-1');
+    formData.append('image', imageBuffer, {
+      filename: `image.${extension}`,
+      contentType: mimeType,
+    });
+    formData.append('prompt', prompt);
+    formData.append('n', '1');
+    formData.append('size', '1024x1024');
+    formData.append('response_format', 'b64_json');
+
+    const imageEditResponse = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
+        ...formData.getHeaders(),
       },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Analyze this person and provide a detailed description focusing on: facial features, apparent age, gender presentation, ethnicity, hair color and style, eye color, facial expression, and any distinctive features. Be specific and detailed for accurate image generation. Format as a natural description.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: image
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 500
-      }),
+      body: formData,
     });
 
-    if (!visionResponse.ok) {
-      const errorData = await visionResponse.json().catch(() => ({}));
-      console.error('GPT-4 Vision API error:', errorData);
+    if (!imageEditResponse.ok) {
+      const errorData = await imageEditResponse.json().catch(() => ({}));
+      console.error('Image edit API error:', errorData);
       
-      if (visionResponse.status === 429) {
+      if (imageEditResponse.status === 429) {
         return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
       }
       
-      return res.status(500).json({ error: 'Failed to analyze image. Please try again.' });
+      return res.status(500).json({ error: 'Failed to transform image. Please try again.' });
     }
 
-    const visionData = await visionResponse.json();
-    const personDescription = visionData.choices?.[0]?.message?.content;
+    const imageEditData = await imageEditResponse.json();
     
-    if (!personDescription) {
-      console.error('Invalid vision response:', visionData);
-      return res.status(500).json({ error: 'Failed to analyze image' });
-    }
-
-    console.log('Person description:', personDescription);
-
-    // Step 2: Generate professional headshot with DALL-E 3
-    // Use the FULL prompt as specified, combining with person description to preserve identity
-    const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Person description: ${personDescription}. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
-
-    console.log('Generating professional headshot with DALL-E 3...');
-    const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'hd',
-        response_format: 'b64_json',
-      }),
-    });
-
-    if (!dalleResponse.ok) {
-      const errorData = await dalleResponse.json().catch(() => ({}));
-      console.error('DALL-E API error:', errorData);
-      
-      if (dalleResponse.status === 429) {
-        return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
-      }
-      
-      return res.status(500).json({ error: 'Failed to generate headshot. Please try again.' });
-    }
-
-    const dalleData = await dalleResponse.json();
-    
-    if (!dalleData.data || !dalleData.data[0] || !dalleData.data[0].b64_json) {
-      console.error('Invalid response from DALL-E:', dalleData);
+    if (!imageEditData.data || !imageEditData.data[0] || !imageEditData.data[0].b64_json) {
+      console.error('Invalid response from image edit API:', imageEditData);
       return res.status(500).json({ error: 'Invalid response from AI service' });
     }
 
-    // Return the generated image as base64
+    // Return the transformed image as base64
     return res.status(200).json({
       success: true,
-      image: `data:image/png;base64,${dalleData.data[0].b64_json}`,
-      revised_prompt: dalleData.data[0].revised_prompt || null,
+      image: `data:image/png;base64,${imageEditData.data[0].b64_json}`,
     });
 
   } catch (error) {
