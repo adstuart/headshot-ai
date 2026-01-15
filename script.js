@@ -2,6 +2,7 @@
 let state = {
     originalImage: null,
     originalImageData: null,
+    tempCanvas: null, // Cache for blur operations
     currentSettings: {
         brightness: 0,
         contrast: 0,
@@ -234,15 +235,18 @@ function applyBackgroundBlur(ctx, width, height) {
     const blurAmount = state.currentSettings.blur;
     
     if (blurAmount > 0) {
-        // Create a subtle blur by drawing the image multiple times with low opacity
+        // Create or reuse cached canvas for better performance
+        if (!state.tempCanvas || state.tempCanvas.width !== width) {
+            state.tempCanvas = document.createElement('canvas');
+            state.tempCanvas.width = width;
+            state.tempCanvas.height = height;
+        }
+        
         ctx.save();
         ctx.filter = `blur(${blurAmount}px)`;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext('2d');
+        const tempCtx = state.tempCanvas.getContext('2d');
         tempCtx.drawImage(enhancedCanvas, 0, 0);
-        ctx.drawImage(tempCanvas, 0, 0);
+        ctx.drawImage(state.tempCanvas, 0, 0);
         ctx.restore();
     }
 }
@@ -341,6 +345,7 @@ function handleNewPhoto() {
     // Reset state
     state.originalImage = null;
     state.originalImageData = null;
+    state.tempCanvas = null;
     state.currentSettings = {
         brightness: 0,
         contrast: 0,
@@ -352,8 +357,18 @@ function handleNewPhoto() {
     // Reset file input
     fileInput.value = '';
     
-    // Reset sliders
-    handleReset();
+    // Reset sliders UI
+    brightnessSlider.value = 0;
+    contrastSlider.value = 0;
+    saturationSlider.value = 0;
+    blurSlider.value = 0;
+    vignetteSlider.value = 0;
+    
+    brightnessValue.textContent = '0';
+    contrastValue.textContent = '0';
+    saturationValue.textContent = '0';
+    blurValue.textContent = '0';
+    vignetteValue.textContent = '0';
     
     // Show upload section
     showSection(uploadSection);
