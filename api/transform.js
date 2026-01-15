@@ -5,6 +5,7 @@
 
 export default async function handler(req, res) {
   // Set CORS headers
+  // Note: Using wildcard (*) for CORS. For production, consider restricting to specific domains
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');

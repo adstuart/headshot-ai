@@ -200,8 +200,10 @@ function displayAIResult(aiImage) {
 
 // Show error message
 function showError(message) {
-    // Sanitize message to prevent XSS
-    const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Sanitize message to prevent XSS using a safe approach
+    const div = document.createElement('div');
+    div.textContent = message; // textContent automatically escapes HTML
+    const sanitizedMessage = div.innerHTML;
     
     const processingContent = document.querySelector('.processing-content');
     processingContent.innerHTML = `

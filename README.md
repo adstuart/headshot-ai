@@ -166,8 +166,10 @@ To customize, edit the `API_URL` constant in `script.js`.
 ## Security & Privacy
 
 - ✅ **API Key Security**: OpenAI API key is stored only in environment variables on the server, never exposed to the frontend
-- ✅ **CORS Protection**: Properly configured CORS headers
+- ✅ **CORS Protection**: CORS headers configured (uses wildcard for simplicity; restrict to specific domains in production for enhanced security)
 - ✅ **Error Handling**: Errors don't leak sensitive information
+- ✅ **Input Validation**: File size limits and type validation on both frontend and backend
+- ✅ **XSS Protection**: User input is properly sanitized
 - ✅ **Client-side Prep**: Images are prepared client-side before being sent to reduce data transfer
 - ⚠️ **Rate Limiting**: Consider adding rate limiting for production use (Vercel has built-in limits)
 
