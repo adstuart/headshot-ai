@@ -102,8 +102,8 @@ export default async function handler(req, res) {
     console.log('Person description:', personDescription);
 
     // Step 2: Generate professional headshot with DALL-E 3
-    // Combine the person description with the professional headshot requirements
-    const prompt = `Ultra-realistic 8K corporate headshot photograph. ${personDescription}. The person is wearing a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects or distractions. Professional studio portrait in portrait orientation, styled as a Sony A7III 85mm f/1.4 photograph with shallow depth of field: subject in sharp focus, background softly blurred. Soft three-point lighting creating gentle shadows and a subtle rim light on hair and shoulders. Natural skin texture with visible pores and fine details, no artificial smoothing or filters. Bright, natural catchlights in the eyes. Professional LinkedIn-ready studio portrait with corporate polish.`;
+    // Use the FULL prompt as specified, combining with person description to preserve identity
+    const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Person description: ${personDescription}. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
 
     console.log('Generating professional headshot with DALL-E 3...');
     const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {

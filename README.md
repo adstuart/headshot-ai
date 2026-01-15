@@ -12,7 +12,6 @@ A web application that transforms your photos into professional LinkedIn headsho
   - Preserves your exact facial features, identity, and expression
   - High-resolution 8K quality output
 - **👀 Before/After Preview**: See your original photo side-by-side with the AI-enhanced version
-- **⚙️ Fine-tune Adjustments**: Optional post-AI adjustments with interactive sliders
 - **⬇️ Easy Download**: Download your professional headshot in high quality PNG format
 - **📱 Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 
@@ -113,11 +112,11 @@ npx http-server
 1. **Upload**: Select or drag-and-drop a photo of yourself
 2. **AI Processing**: The photo is sent to the serverless backend, which:
    - Receives your image (processed client-side first for privacy)
+   - Analyzes the person using GPT-4o Vision
    - Calls OpenAI's DALL-E 3 API with a specialized prompt
    - Returns a professional 8K corporate headshot
 3. **Preview**: View your original photo next to the AI-generated professional headshot
-4. **Adjust** (Optional): Fine-tune with brightness, contrast, and other adjustments
-5. **Download**: Save your professional LinkedIn-ready headshot
+4. **Download**: Save your professional LinkedIn-ready headshot
 
 ## Architecture
 
