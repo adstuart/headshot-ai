@@ -33,15 +33,23 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    // Get the image from request body
-    const { image } = req.body;
+    // Get the image and mask from request body
+    const { image, mask } = req.body;
     if (!image) {
       return res.status(400).json({ error: 'No image provided' });
+    }
+    if (!mask) {
+      return res.status(400).json({ error: 'No mask provided' });
     }
 
     // Validate base64 image format
     if (!image.startsWith('data:image/')) {
       return res.status(400).json({ error: 'Invalid image format' });
+    }
+    
+    // Validate base64 mask format
+    if (!mask.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Invalid mask format' });
     }
 
     // Check image size (limit to ~10MB base64, which is ~7.5MB binary)
@@ -50,7 +58,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Image too large. Please use a smaller image.' });
     }
 
-    // Convert base64 to buffer
+    // Convert base64 image to buffer
     const dataUrlParts = image.split(',');
     if (dataUrlParts.length !== 2) {
       return res.status(400).json({ error: 'Invalid image data format' });
@@ -68,16 +76,37 @@ export default async function handler(req, res) {
     // Create a Blob from the buffer with correct MIME type
     const imageBlob = new Blob([imageBuffer], { type: mimeType });
     
+    // Convert base64 mask to buffer
+    const maskDataUrlParts = mask.split(',');
+    if (maskDataUrlParts.length !== 2) {
+      return res.status(400).json({ error: 'Invalid mask data format' });
+    }
+    const maskBase64Data = maskDataUrlParts[1];
+    const maskBuffer = Buffer.from(maskBase64Data, 'base64');
+    
+    // Determine mask format from data URL
+    const maskMimeTypeParts = mask.split(';')[0].split(':');
+    if (maskMimeTypeParts.length !== 2) {
+      return res.status(400).json({ error: 'Invalid mask mime type format' });
+    }
+    const maskMimeType = maskMimeTypeParts[1];
+    
+    // Create a Blob from the mask buffer with correct MIME type
+    const maskBlob = new Blob([maskBuffer], { type: maskMimeType });
+    
     // The full prompt - DO NOT TRUNCATE
     const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
 
     // Use native FormData
     const formData = new FormData();
-    formData.append('model', 'gpt-image-1');
+    formData.append('model', 'gpt-image-1.5');
     formData.append('image', imageBlob, 'image.png');
+    formData.append('mask', maskBlob, 'mask.png');
     formData.append('prompt', prompt);
     formData.append('n', '1');
-    formData.append('size', '1024x1024');
+    formData.append('size', '1024x1536');
+    formData.append('quality', 'high');
+    formData.append('input_fidelity', 'high');
 
     console.log('Calling OpenAI image edit API...');
     
