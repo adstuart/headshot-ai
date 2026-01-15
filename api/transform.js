@@ -51,11 +51,22 @@ export default async function handler(req, res) {
     }
 
     // Convert base64 to buffer
-    const base64Data = image.split(',')[1];
+    const dataUrlParts = image.split(',');
+    if (dataUrlParts.length !== 2) {
+      return res.status(400).json({ error: 'Invalid image data format' });
+    }
+    const base64Data = dataUrlParts[1];
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
-    // Create a Blob from the buffer
-    const imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+    // Determine image format from data URL
+    const mimeTypeParts = image.split(';')[0].split(':');
+    if (mimeTypeParts.length !== 2) {
+      return res.status(400).json({ error: 'Invalid image mime type format' });
+    }
+    const mimeType = mimeTypeParts[1];
+    
+    // Create a Blob from the buffer with correct MIME type
+    const imageBlob = new Blob([imageBuffer], { type: mimeType });
     
     // The full prompt - DO NOT TRUNCATE
     const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
@@ -106,10 +117,18 @@ export default async function handler(req, res) {
       resultImage = `data:image/png;base64,${data.data[0].b64_json}`;
     } else if (data.data?.[0]?.url) {
       // If we get a URL, fetch the image and convert to base64
-      const imageResponse = await fetch(data.data[0].url);
-      const imageArrayBuffer = await imageResponse.arrayBuffer();
-      const base64 = Buffer.from(imageArrayBuffer).toString('base64');
-      resultImage = `data:image/png;base64,${base64}`;
+      try {
+        const imageResponse = await fetch(data.data[0].url);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image from URL: ${imageResponse.status}`);
+        }
+        const imageArrayBuffer = await imageResponse.arrayBuffer();
+        const base64 = Buffer.from(imageArrayBuffer).toString('base64');
+        resultImage = `data:image/png;base64,${base64}`;
+      } catch (fetchError) {
+        console.error('Error fetching image from URL:', fetchError);
+        return res.status(500).json({ error: 'Failed to retrieve transformed image' });
+      }
     } else {
       console.error('Unexpected response format:', data);
       return res.status(500).json({ error: 'Unexpected response from AI service' });
