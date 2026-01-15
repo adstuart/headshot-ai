@@ -1,7 +1,13 @@
+// Configuration
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000/api/transform'
+    : '/api/transform';
+
 // State management
 let state = {
     originalImage: null,
     originalImageData: null,
+    aiGeneratedImage: null, // Store the AI-generated result
     tempCanvas: null, // Cache for blur operations
     currentSettings: {
         brightness: 0,
@@ -70,7 +76,14 @@ function init() {
 function handleFileSelect(e) {
     const file = e.target.files[0];
     if (file && file.type.startsWith('image/')) {
+        // Check file size (limit to 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showError('Image file is too large. Please use an image smaller than 10MB.');
+            return;
+        }
         processImage(file);
+    } else if (file) {
+        showError('Please select a valid image file (JPEG, PNG, etc.).');
     }
 }
 
@@ -90,26 +103,119 @@ function handleDrop(e) {
     
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
+        // Check file size (limit to 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showError('Image file is too large. Please use an image smaller than 10MB.');
+            return;
+        }
         processImage(file);
+    } else if (file) {
+        showError('Please select a valid image file (JPEG, PNG, etc.).');
     }
 }
 
 // Image processing
-function processImage(file) {
+async function processImage(file) {
     showSection(processingSection);
+    updateProcessingMessage('Preparing your image...');
     
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
             state.originalImage = img;
             prepareCanvases(img);
-            applyEnhancements();
-            setTimeout(() => showSection(previewSection), 500);
+            
+            // Get base64 of the cropped/prepared image for AI processing
+            const base64Image = originalCanvas.toDataURL('image/png');
+            
+            // Call the AI backend
+            try {
+                updateProcessingMessage('Transforming your photo with AI...<br><small>This may take 15-30 seconds</small>');
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: base64Image
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Failed to transform image');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.image) {
+                    // Load the AI-generated image
+                    const aiImg = new Image();
+                    aiImg.onload = () => {
+                        state.aiGeneratedImage = aiImg;
+                        displayAIResult(aiImg);
+                        setTimeout(() => showSection(previewSection), 300);
+                    };
+                    aiImg.onerror = () => {
+                        throw new Error('Failed to load AI-generated image');
+                    };
+                    aiImg.src = result.image;
+                } else {
+                    throw new Error('Invalid response from server');
+                }
+                
+            } catch (error) {
+                console.error('Error processing image:', error);
+                showError(error.message || 'Failed to transform image. Please try again.');
+            }
+        };
+        img.onerror = () => {
+            showError('Failed to load image. Please try a different file.');
         };
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+// Update processing message
+function updateProcessingMessage(message) {
+    const processingText = document.querySelector('.processing-content p');
+    if (processingText) {
+        processingText.innerHTML = message;
+    }
+}
+
+// Display AI-generated result
+function displayAIResult(aiImage) {
+    const ctx = enhancedCanvas.getContext('2d');
+    enhancedCanvas.width = aiImage.width;
+    enhancedCanvas.height = aiImage.height;
+    ctx.drawImage(aiImage, 0, 0);
+    
+    // Store the AI result as the base for any adjustments
+    state.originalImageData = ctx.getImageData(0, 0, aiImage.width, aiImage.height);
+}
+
+// Show error message
+function showError(message) {
+    // Sanitize message to prevent XSS using a safe approach
+    const div = document.createElement('div');
+    div.textContent = message; // textContent automatically escapes HTML
+    const sanitizedMessage = div.innerHTML;
+    
+    const processingContent = document.querySelector('.processing-content');
+    processingContent.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <svg style="width: 60px; height: 60px; color: #dc3545; margin-bottom: 20px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 style="color: #dc3545; margin-bottom: 10px;">Oops! Something went wrong</h3>
+            <p style="color: #6c757d; margin-bottom: 20px;">${sanitizedMessage}</p>
+            <button class="btn btn-primary" onclick="handleNewPhoto()">Try Another Photo</button>
+        </div>
+    `;
 }
 
 function prepareCanvases(img) {
