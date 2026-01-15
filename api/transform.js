@@ -105,8 +105,6 @@ export default async function handler(req, res) {
     formData.append('prompt', prompt);
     formData.append('n', '1');
     formData.append('size', '1024x1536');
-    formData.append('quality', 'high');
-    formData.append('input_fidelity', 'high');
 
     console.log('Calling OpenAI image edit API...');
     
