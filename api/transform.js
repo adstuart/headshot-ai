@@ -3,9 +3,6 @@
  * This function receives an image, sends it to OpenAI's API, and returns the transformed result
  */
 
-// Import FormData for multipart/form-data support
-import FormData from 'form-data';
-
 export default async function handler(req, res) {
   // Set CORS headers
   // Note: Using wildcard (*) for CORS. For production, consider restricting to specific domains
@@ -53,8 +50,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Image too large. Please use a smaller image.' });
     }
 
-    // Convert base64 image to buffer for multipart/form-data
-    // Extract the base64 data from the data URL
+    // Convert base64 to buffer
     const dataUrlParts = image.split(',');
     if (dataUrlParts.length !== 2) {
       return res.status(400).json({ error: 'Invalid image data format' });
@@ -68,65 +64,83 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid image mime type format' });
     }
     const mimeType = mimeTypeParts[1];
-    const extension = mimeType.split('/')[1];
     
-    // Validate mime type
-    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(mimeType)) {
-      return res.status(400).json({ error: 'Image must be PNG, JPEG, or WebP format' });
-    }
-
-    // Use the exact prompt as specified
-    const prompt = 'Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.';
-
-    console.log('Transforming image with gpt-image-1...');
+    // Create a Blob from the buffer with correct MIME type
+    const imageBlob = new Blob([imageBuffer], { type: mimeType });
     
-    // Create multipart form data
+    // The full prompt - DO NOT TRUNCATE
+    const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
+
+    // Use native FormData
     const formData = new FormData();
     formData.append('model', 'gpt-image-1');
-    formData.append('image', imageBuffer, {
-      filename: `image.${extension}`,
-      contentType: mimeType,
-    });
+    formData.append('image', imageBlob, 'image.png');
     formData.append('prompt', prompt);
     formData.append('n', '1');
     formData.append('size', '1024x1024');
-    formData.append('response_format', 'b64_json');
 
-    const imageEditResponse = await fetch('https://api.openai.com/v1/images/edits', {
+    console.log('Calling OpenAI image edit API...');
+    
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        ...formData.getHeaders(),
       },
       body: formData,
     });
 
-    if (!imageEditResponse.ok) {
-      const errorData = await imageEditResponse.json().catch(() => ({}));
-      console.error('Image edit API error:', errorData);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('OpenAI API error:', JSON.stringify(errorData, null, 2));
       
-      if (imageEditResponse.status === 429) {
+      // Return more specific error messages
+      if (response.status === 429) {
         return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
       }
+      if (response.status === 400) {
+        return res.status(400).json({ error: errorData.error?.message || 'Invalid request to AI service.' });
+      }
+      if (response.status === 401) {
+        return res.status(500).json({ error: 'API authentication error. Please check configuration.' });
+      }
       
-      return res.status(500).json({ error: 'Failed to transform image. Please try again.' });
+      return res.status(500).json({ 
+        error: errorData.error?.message || 'Failed to transform image. Please try again.' 
+      });
     }
 
-    const imageEditData = await imageEditResponse.json();
+    const data = await response.json();
     
-    if (!imageEditData.data || !imageEditData.data[0] || !imageEditData.data[0].b64_json) {
-      console.error('Invalid response from image edit API:', imageEditData);
-      return res.status(500).json({ error: 'Invalid response from AI service' });
+    // Handle both b64_json and url response formats
+    let resultImage;
+    if (data.data?.[0]?.b64_json) {
+      resultImage = `data:image/png;base64,${data.data[0].b64_json}`;
+    } else if (data.data?.[0]?.url) {
+      // If we get a URL, fetch the image and convert to base64
+      try {
+        const imageResponse = await fetch(data.data[0].url);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image from URL: ${imageResponse.status}`);
+        }
+        const imageArrayBuffer = await imageResponse.arrayBuffer();
+        const base64 = Buffer.from(imageArrayBuffer).toString('base64');
+        resultImage = `data:image/png;base64,${base64}`;
+      } catch (fetchError) {
+        console.error('Error fetching image from URL:', fetchError);
+        return res.status(500).json({ error: 'Failed to retrieve transformed image' });
+      }
+    } else {
+      console.error('Unexpected response format:', data);
+      return res.status(500).json({ error: 'Unexpected response from AI service' });
     }
 
-    // Return the transformed image as base64
     return res.status(200).json({
       success: true,
-      image: `data:image/png;base64,${imageEditData.data[0].b64_json}`,
+      image: resultImage,
     });
 
   } catch (error) {
-    console.error('Error in transform function:', error);
+    console.error('Error in transform function:', error.message, error.stack);
     return res.status(500).json({ 
       error: 'An unexpected error occurred. Please try again.' 
     });
