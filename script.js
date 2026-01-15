@@ -3,6 +3,10 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
     ? 'http://localhost:3000/api/transform'
     : '/api/transform';
 
+// Canvas dimensions for portrait orientation (1024x1536)
+const TARGET_WIDTH = 1024;
+const TARGET_HEIGHT = 1536;
+
 // State management
 let state = {
     originalImage: null,
@@ -83,6 +87,38 @@ function handleDrop(e) {
     }
 }
 
+// Generate mask for image editing
+// Transparent pixels = areas to edit (clothes + background)
+// Opaque pixels = areas to protect (face + hair)
+function generateMask(sourceCanvas) {
+    // Create a temporary canvas for the mask
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = sourceCanvas.width;
+    maskCanvas.height = sourceCanvas.height;
+    const ctx = maskCanvas.getContext('2d');
+    
+    // Start with transparent (areas to edit)
+    ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    
+    // Protect face/hair area (make it opaque/white)
+    // Simple approach: protect the upper-center portion of the image
+    // This assumes the face/hair is in the top 40% of the portrait
+    ctx.fillStyle = 'rgba(255, 255, 255, 1)'; // Opaque white
+    
+    // Create an ellipse for the face/hair region
+    const centerX = maskCanvas.width / 2;
+    const centerY = maskCanvas.height * 0.25; // Upper 25% center point
+    const radiusX = maskCanvas.width * 0.4; // 40% of width
+    const radiusY = maskCanvas.height * 0.35; // 35% of height for face/hair
+    
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Return as base64 PNG
+    return maskCanvas.toDataURL('image/png');
+}
+
 // Image processing
 async function processImage(file) {
     showSection(processingSection);
@@ -98,6 +134,9 @@ async function processImage(file) {
             // Get base64 of the cropped/prepared image for AI processing
             const base64Image = originalCanvas.toDataURL('image/png');
             
+            // Generate mask for the image
+            const base64Mask = generateMask(originalCanvas);
+            
             // Call the AI backend
             try {
                 updateProcessingMessage('Transforming your photo with AI...<br><small>This may take 15-30 seconds</small>');
@@ -108,7 +147,8 @@ async function processImage(file) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        image: base64Image
+                        image: base64Image,
+                        mask: base64Mask
                     })
                 });
                 
@@ -185,36 +225,37 @@ function showError(message) {
 }
 
 function prepareCanvases(img) {
-    // Calculate dimensions for professional headshot (1:1 ratio)
-    const targetSize = 800;
+    // Calculate dimensions for professional headshot (portrait 1024x1536)
     const aspectRatio = img.width / img.height;
     
     let cropWidth, cropHeight, offsetX, offsetY;
     
-    // Crop to square, centered on the image (face detection would go here)
-    if (aspectRatio > 1) {
-        // Landscape
-        cropWidth = img.height;
+    // Crop to portrait orientation (2:3 ratio), centered on the image
+    const targetAspectRatio = TARGET_WIDTH / TARGET_HEIGHT; // 1024/1536 = 0.667
+    
+    if (aspectRatio > targetAspectRatio) {
+        // Image is wider than target - crop width
         cropHeight = img.height;
+        cropWidth = img.height * targetAspectRatio;
         offsetX = (img.width - cropWidth) / 2;
         offsetY = 0;
     } else {
-        // Portrait or square
+        // Image is taller than target - crop height, bias towards top for headshots
         cropWidth = img.width;
-        cropHeight = img.width;
+        cropHeight = img.width / targetAspectRatio;
         offsetX = 0;
-        offsetY = Math.max(0, (img.height - cropHeight) / 3); // Bias towards top for headshots
+        offsetY = Math.max(0, (img.height - cropHeight) / 4); // Bias towards top
     }
     
-    // Set up original canvas
-    originalCanvas.width = targetSize;
-    originalCanvas.height = targetSize;
+    // Set up original canvas with portrait dimensions
+    originalCanvas.width = TARGET_WIDTH;
+    originalCanvas.height = TARGET_HEIGHT;
     const originalCtx = originalCanvas.getContext('2d');
-    originalCtx.drawImage(img, offsetX, offsetY, cropWidth, cropHeight, 0, 0, targetSize, targetSize);
+    originalCtx.drawImage(img, offsetX, offsetY, cropWidth, cropHeight, 0, 0, TARGET_WIDTH, TARGET_HEIGHT);
     
-    // Set up enhanced canvas
-    enhancedCanvas.width = targetSize;
-    enhancedCanvas.height = targetSize;
+    // Set up enhanced canvas with same portrait dimensions
+    enhancedCanvas.width = TARGET_WIDTH;
+    enhancedCanvas.height = TARGET_HEIGHT;
 }
 
 // Action handlers
