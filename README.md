@@ -1,16 +1,16 @@
 # Headshot AI
 
-A web application that transforms your photos into professional LinkedIn headshots using AI-powered image generation via OpenAI's DALL-E 3.
+A web application that transforms your photos into professional LinkedIn headshots using AI-powered image editing via OpenAI's gpt-image-1 model.
 
 ## Features
 
 - **📸 Easy Photo Upload**: Drag-and-drop or browse to select your photo
-- **🤖 AI-Powered Transformation**: Uses OpenAI's DALL-E 3 to generate ultra-realistic professional headshots
+- **🤖 AI-Powered Transformation**: Uses OpenAI's gpt-image-1 to edit your actual photo and create ultra-realistic professional headshots
 - **✨ Professional Quality**: 
   - Automatic professional attire (navy blue suit, white shirt)
   - Studio-quality lighting and background
   - Preserves your exact facial features, identity, and expression
-  - High-resolution 8K quality output
+  - High-resolution output
 - **👀 Before/After Preview**: See your original photo side-by-side with the AI-enhanced version
 - **⬇️ Easy Download**: Download your professional headshot in high quality PNG format
 - **📱 Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
@@ -112,25 +112,26 @@ npx http-server
 1. **Upload**: Select or drag-and-drop a photo of yourself
 2. **AI Processing**: The photo is sent to the serverless backend, which:
    - Receives your image (processed client-side first for privacy)
-   - Analyzes the person using GPT-4o Vision
-   - Calls OpenAI's DALL-E 3 API with a specialized prompt
-   - Returns a professional 8K corporate headshot
+   - Converts the image to the proper format for the API
+   - Calls OpenAI's gpt-image-1 with the /v1/images/edits endpoint
+   - The AI edits your actual photo to create a professional headshot while preserving your likeness
+   - Returns a professional corporate headshot
 3. **Preview**: View your original photo next to the AI-generated professional headshot
 4. **Download**: Save your professional LinkedIn-ready headshot
 
 ## Architecture
 
 ```
-┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
-│   Browser   │────────▶│ Vercel Serverless│────────▶│  OpenAI API │
-│  (Frontend) │         │   Function       │         │  (DALL-E 3) │
-│             │◀────────│  /api/transform  │◀────────│             │
-└─────────────┘         └──────────────────┘         └─────────────┘
+┌─────────────┐         ┌──────────────────┐         ┌─────────────────┐
+│   Browser   │────────▶│ Vercel Serverless│────────▶│   OpenAI API    │
+│  (Frontend) │         │   Function       │         │ (gpt-image-1)   │
+│             │◀────────│  /api/transform  │◀────────│ /images/edits   │
+└─────────────┘         └──────────────────┘         └─────────────────┘
 ```
 
 - **Frontend**: Static HTML/CSS/JavaScript
 - **Backend**: Vercel Serverless Function (Node.js)
-- **AI Engine**: OpenAI DALL-E 3 API
+- **AI Engine**: OpenAI gpt-image-1 Image Editing API
 
 ## File Structure
 
@@ -174,7 +175,7 @@ To customize, edit the `API_URL` constant in `script.js`.
 
 ## Cost Considerations
 
-- **OpenAI API**: DALL-E 3 costs approximately $0.04-$0.08 per image (1024x1024, HD quality)
+- **OpenAI API**: gpt-image-1 image edits cost approximately $0.02-$0.04 per image (1024x1024)
 - **Vercel Hosting**: Free tier includes:
   - 100GB bandwidth per month
   - 100 serverless function executions per day
