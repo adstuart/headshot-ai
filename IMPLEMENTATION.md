@@ -40,7 +40,6 @@ User Browser → Frontend (HTML/CSS/JS) → Vercel Serverless Function → OpenA
   - Original upload UI (drag-and-drop, file browser)
   - Before/After comparison view
   - Download functionality
-  - Adjustment sliders (for post-AI tweaking)
 
 #### 3. Configuration Files
 
