@@ -17,7 +17,7 @@ A web application that transforms your photos into professional LinkedIn headsho
 
 ## Try It Out
 
-Visit the live website: [https://adstuart.github.io/headshot-ai/](https://adstuart.github.io/headshot-ai/)
+Visit the live website: [https://headshot-ai.vercel.app/](https://headshot-ai.vercel.app/)
 
 ## How It Works
 
