@@ -144,6 +144,15 @@ function displayPreview(img) {
 async function handleStyleSelection(e) {
     const button = e.currentTarget;
     const style = button.getAttribute('data-style');
+    
+    // Validate style parameter
+    const validStyles = ['traditional', 'modern', 'relaxed'];
+    if (!style || !validStyles.includes(style)) {
+        console.error('Invalid style selected:', style);
+        showError('Invalid style selection. Please try again.');
+        return;
+    }
+    
     state.selectedStyle = style;
     
     // Show processing section
