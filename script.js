@@ -10,11 +10,14 @@ const TARGET_HEIGHT = 1536;
 // State management
 let state = {
     originalImage: null,
-    aiGeneratedImage: null // Store the AI-generated result
+    aiGeneratedImage: null, // Store the AI-generated result
+    selectedStyle: null, // Store the selected style
+    uploadedImageData: null // Store the base64 image data for API call
 };
 
 // DOM Elements
 const uploadSection = document.getElementById('upload-section');
+const styleSection = document.getElementById('style-section');
 const processingSection = document.getElementById('processing-section');
 const previewSection = document.getElementById('preview-section');
 const uploadArea = document.getElementById('upload-area');
@@ -22,8 +25,10 @@ const fileInput = document.getElementById('file-input');
 const browseBtn = document.getElementById('browse-btn');
 const originalCanvas = document.getElementById('original-canvas');
 const enhancedCanvas = document.getElementById('enhanced-canvas');
+const previewCanvas = document.getElementById('preview-canvas');
 const downloadBtn = document.getElementById('download-btn');
 const newPhotoBtn = document.getElementById('new-photo-btn');
+const styleButtons = document.querySelectorAll('.btn-style');
 
 // Initialize event listeners
 function init() {
@@ -43,6 +48,11 @@ function init() {
     // Button events
     downloadBtn.addEventListener('click', handleDownload);
     newPhotoBtn.addEventListener('click', handleNewPhoto);
+    
+    // Style selection events
+    styleButtons.forEach(button => {
+        button.addEventListener('click', handleStyleSelection);
+    });
 }
 
 // File handling
@@ -89,9 +99,6 @@ function handleDrop(e) {
 
 // Image processing
 async function processImage(file) {
-    showSection(processingSection);
-    updateProcessingMessage('Preparing your image...');
-    
     const reader = new FileReader();
     reader.onload = async (e) => {
         const img = new Image();
@@ -99,50 +106,14 @@ async function processImage(file) {
             state.originalImage = img;
             prepareCanvases(img);
             
-            // Get base64 of the cropped/prepared image for AI processing
-            const base64Image = originalCanvas.toDataURL('image/png');
+            // Get base64 of the cropped/prepared image and store it
+            state.uploadedImageData = originalCanvas.toDataURL('image/png');
             
-            // Call the AI backend
-            try {
-                updateProcessingMessage('Transforming your photo with AI...<br><small>This may take 15-30 seconds</small>');
-                
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        image: base64Image
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Failed to transform image');
-                }
-                
-                const result = await response.json();
-                
-                if (result.success && result.image) {
-                    // Load the AI-generated image
-                    const aiImg = new Image();
-                    aiImg.onload = () => {
-                        state.aiGeneratedImage = aiImg;
-                        displayAIResult(aiImg);
-                        setTimeout(() => showSection(previewSection), 300);
-                    };
-                    aiImg.onerror = () => {
-                        throw new Error('Failed to load AI-generated image');
-                    };
-                    aiImg.src = result.image;
-                } else {
-                    throw new Error('Invalid response from server');
-                }
-                
-            } catch (error) {
-                console.error('Error processing image:', error);
-                showError(error.message || 'Failed to transform image. Please try again.');
-            }
+            // Show the preview canvas with the uploaded image
+            displayPreview();
+            
+            // Show style selection section
+            showSection(styleSection);
         };
         img.onerror = () => {
             showError('Failed to load image. Please try a different file.');
@@ -157,6 +128,77 @@ function updateProcessingMessage(message) {
     const processingText = document.querySelector('.processing-content p');
     if (processingText) {
         processingText.innerHTML = message;
+    }
+}
+
+// Display preview of uploaded image
+function displayPreview() {
+    const ctx = previewCanvas.getContext('2d');
+    // Use same dimensions as original canvas for consistency
+    previewCanvas.width = originalCanvas.width;
+    previewCanvas.height = originalCanvas.height;
+    ctx.drawImage(originalCanvas, 0, 0);
+}
+
+// Handle style selection
+async function handleStyleSelection(e) {
+    const button = e.currentTarget;
+    const style = button.getAttribute('data-style');
+    
+    // Validate style parameter (must match styles defined in API)
+    // These should be kept in sync with CLOTHING_PROMPTS in api/transform.js
+    const validStyles = ['traditional', 'modern', 'relaxed'];
+    if (!style || !validStyles.includes(style)) {
+        console.error('Invalid style selected:', style);
+        showError('Invalid style selection. Please try again.');
+        return;
+    }
+    
+    state.selectedStyle = style;
+    
+    // Show processing section
+    showSection(processingSection);
+    updateProcessingMessage('Transforming your photo with AI...<br><small>This may take 15-30 seconds</small>');
+    
+    // Call the AI backend with the selected style
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image: state.uploadedImageData,
+                style: style
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to transform image');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.image) {
+            // Load the AI-generated image
+            const aiImg = new Image();
+            aiImg.onload = () => {
+                state.aiGeneratedImage = aiImg;
+                displayAIResult(aiImg);
+                setTimeout(() => showSection(previewSection), 300);
+            };
+            aiImg.onerror = () => {
+                throw new Error('Failed to load AI-generated image');
+            };
+            aiImg.src = result.image;
+        } else {
+            throw new Error('Invalid response from server');
+        }
+        
+    } catch (error) {
+        console.error('Error processing image:', error);
+        showError(error.message || 'Failed to transform image. Please try again.');
     }
 }
 
@@ -234,6 +276,8 @@ function handleNewPhoto() {
     // Reset state
     state.originalImage = null;
     state.aiGeneratedImage = null;
+    state.selectedStyle = null;
+    state.uploadedImageData = null;
     
     // Reset file input
     fileInput.value = '';
@@ -245,6 +289,7 @@ function handleNewPhoto() {
 // Utility functions
 function showSection(section) {
     uploadSection.classList.remove('active');
+    styleSection.classList.remove('active');
     processingSection.classList.remove('active');
     previewSection.classList.remove('active');
     section.classList.add('active');

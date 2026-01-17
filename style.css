@@ -145,6 +145,82 @@ header h1 {
     border-color: var(--primary-color);
 }
 
+/* Style Selection Section */
+.style-content {
+    text-align: center;
+    padding: 20px;
+}
+
+.style-content h2 {
+    font-size: 2rem;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+}
+
+.style-description {
+    color: var(--text-light);
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+}
+
+.preview-uploaded {
+    margin-bottom: 30px;
+}
+
+.preview-uploaded h3 {
+    color: var(--text-dark);
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+.preview-uploaded canvas {
+    max-width: 300px;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    margin: 0 auto;
+    display: block;
+}
+
+.style-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 30px;
+}
+
+.btn-style {
+    background: var(--background);
+    color: var(--text-dark);
+    border: 2px solid var(--border-color);
+    padding: 20px 30px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-style:hover {
+    border-color: var(--primary-color);
+    background: #e8f4f8;
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-style strong {
+    font-size: 1.1rem;
+    display: block;
+}
+
+.btn-style span {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    font-weight: normal;
+}
+
 /* Processing Section */
 .processing-content {
     text-align: center;
