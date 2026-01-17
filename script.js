@@ -110,7 +110,7 @@ async function processImage(file) {
             state.uploadedImageData = originalCanvas.toDataURL('image/png');
             
             // Show the preview canvas with the uploaded image
-            displayPreview(img);
+            displayPreview();
             
             // Show style selection section
             showSection(styleSection);
@@ -132,7 +132,7 @@ function updateProcessingMessage(message) {
 }
 
 // Display preview of uploaded image
-function displayPreview(img) {
+function displayPreview() {
     const ctx = previewCanvas.getContext('2d');
     // Use same dimensions as original canvas for consistency
     previewCanvas.width = originalCanvas.width;
@@ -145,7 +145,8 @@ async function handleStyleSelection(e) {
     const button = e.currentTarget;
     const style = button.getAttribute('data-style');
     
-    // Validate style parameter
+    // Validate style parameter (must match styles defined in API)
+    // These should be kept in sync with CLOTHING_PROMPTS in api/transform.js
     const validStyles = ['traditional', 'modern', 'relaxed'];
     if (!style || !validStyles.includes(style)) {
         console.error('Invalid style selected:', style);
