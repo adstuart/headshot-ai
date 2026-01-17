@@ -87,38 +87,6 @@ function handleDrop(e) {
     }
 }
 
-// Generate mask for image editing
-// Transparent pixels = areas to edit (clothes + background)
-// Opaque pixels = areas to protect (face + hair)
-function generateMask(sourceCanvas) {
-    // Create a temporary canvas for the mask
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = sourceCanvas.width;
-    maskCanvas.height = sourceCanvas.height;
-    const ctx = maskCanvas.getContext('2d');
-    
-    // Start with transparent (areas to edit)
-    ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-    
-    // Protect face/hair area (make it opaque/white)
-    // Simple approach: protect the upper-center portion of the image
-    // This assumes the face/hair is in the top 40% of the portrait
-    ctx.fillStyle = 'rgba(255, 255, 255, 1)'; // Opaque white
-    
-    // Create an ellipse for the face/hair region
-    const centerX = maskCanvas.width / 2;
-    const centerY = maskCanvas.height * 0.25; // Upper 25% center point
-    const radiusX = maskCanvas.width * 0.4; // 40% of width
-    const radiusY = maskCanvas.height * 0.35; // 35% of height for face/hair
-    
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // Return as base64 PNG
-    return maskCanvas.toDataURL('image/png');
-}
-
 // Image processing
 async function processImage(file) {
     showSection(processingSection);
@@ -134,9 +102,6 @@ async function processImage(file) {
             // Get base64 of the cropped/prepared image for AI processing
             const base64Image = originalCanvas.toDataURL('image/png');
             
-            // Generate mask for the image
-            const base64Mask = generateMask(originalCanvas);
-            
             // Call the AI backend
             try {
                 updateProcessingMessage('Transforming your photo with AI...<br><small>This may take 15-30 seconds</small>');
@@ -147,8 +112,7 @@ async function processImage(file) {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        image: base64Image,
-                        mask: base64Mask
+                        image: base64Image
                     })
                 });
                 
