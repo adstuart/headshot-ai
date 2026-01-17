@@ -17,7 +17,7 @@ A web application that transforms your photos into professional LinkedIn headsho
 
 ## Try It Out
 
-Visit the live website: [https://headshot-ai.vercel.app/](https://headshot-ai.vercel.app/)
+Visit the live website: [https://headshot-ai-topaz.vercel.app/](https://headshot-ai-topaz.vercel.app/)
 
 ## How It Works
 
