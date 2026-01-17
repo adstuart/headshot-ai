@@ -5,9 +5,9 @@
 
 // Clothing prompt variations for different styles
 const CLOTHING_PROMPTS = {
-  traditional: 'Replace clothing with a tailored charcoal gray business suit, crisp white dress shirt, and a solid medium-blue silk tie (classic four-in-hand knot).',
-  modern: 'Replace clothing with a tailored navy blue wool business suit and crisp white dress shirt. No tie.',
-  relaxed: 'Replace clothing with a tailored navy blazer over a crisp white polo shirt (no logos), top button open. No tie.'
+  traditional: 'Replace clothing with a tailored charcoal gray business suit and crisp white formal shirt.',
+  modern: 'Replace clothing with a tailored navy blue wool business suit and crisp white shirt.',
+  relaxed: 'Replace clothing with a relaxed navy blazer and crisp white t-shirt with no collar.'
 };
 
 export default async function handler(req, res) {
