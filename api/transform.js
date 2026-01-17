@@ -33,8 +33,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    // Get the image from request body
-    const { image } = req.body;
+    // Get the image and style from request body
+    const { image, style } = req.body;
     if (!image) {
       return res.status(400).json({ error: 'No image provided' });
     }
@@ -68,8 +68,19 @@ export default async function handler(req, res) {
     // Create a Blob from the buffer with correct MIME type
     const imageBlob = new Blob([imageBuffer], { type: mimeType });
     
-    // The full prompt - DO NOT TRUNCATE
-    const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. Replace clothing with a tailored navy blue wool business suit and crisp white shirt. Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
+    // Define clothing prompts for each style
+    const clothingPrompts = {
+      traditional: 'Replace clothing with a tailored charcoal gray business suit, crisp white dress shirt, and a solid medium-blue silk tie (classic four-in-hand knot).',
+      modern: 'Replace clothing with a tailored navy blue wool business suit and crisp white dress shirt. No tie.',
+      relaxed: 'Replace clothing with a tailored navy blazer over a crisp white polo shirt (no logos), top button open. No tie.'
+    };
+    
+    // Get the selected style, default to 'modern' for backward compatibility
+    const selectedStyle = style || 'modern';
+    const clothingPrompt = clothingPrompts[selectedStyle] || clothingPrompts.modern;
+    
+    // Build the full prompt with the selected clothing style
+    const prompt = `Ultra-realistic 8K corporate headshot of the person in the input photo. Keep their exact face, identity, age, gender, ethnicity, hairstyle and expression; do not alter unique facial features. ${clothingPrompt} Clean dark gray studio backdrop with a soft center-light gradient and subtle vignette, no objects. Style as a Sony A7III 85mm f/1.4 studio portrait in portrait orientation with shallow depth of field: subject sharp, background softly blurred. Soft three-point lighting with gentle shadows and a subtle rim light on hair and shoulders. Preserve natural skin texture with pores and fine details, no plastic smoothing. Bright, natural catchlights in the eyes. Final image: high-end LinkedIn-ready studio portrait.`;
 
     // Use native FormData
     const formData = new FormData();
